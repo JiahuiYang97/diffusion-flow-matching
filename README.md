@@ -1,4 +1,2 @@
-# JiahuiYang
 
-
-Link: https://JiahuiYang97.github.io
+Link: https://jiahuiyang97.github.io/JiahuiYang97/
