@@ -236,32 +236,36 @@
 
 <!-- ===================== HERO ===================== -->
 <div class="hero">
-  <h1>The Power of Diffusion Models</h1>
-  <p>Image Generation, Optical Illusions, and Training from Scratch</p>
+  <h1>From Noise to Structure: Diffusion Models and Flow Matching</h1>
+  <!-- <p>Image Generation, Optical Illusions, and Training from Scratch</p> -->
   <div class="authors">
-    <strong>Author Name</strong> &nbsp;·&nbsp; University / Institution &nbsp;·&nbsp; 2024
+    <strong>Jiahui Yang</strong> &nbsp;·&nbsp; University of California, Berkeley &nbsp;·&nbsp; 2026
   </div>
-  <div class="links">
+  <!-- <div class="links">
     <a href="#">Paper</a>
     <a href="#">Code</a>
     <a href="#">Dataset</a>
-  </div>
+  </div> -->
 </div>
 
 <!-- ===================== ABSTRACT ===================== -->
 <div class="section">
   <h2>Abstract</h2>
   <p>
-    This project explores the capabilities of diffusion models in image generation and processing.
-    A pretrained diffusion model (DeepFloyd IF) is applied to image generation from text prompts
-    and to creative image processing tasks such as optical illusion synthesis. In the second part,
-    a diffusion model is trained from scratch to understand the core mechanics of the approach.
+   This project investigates diffusion-based generative models through both pretrained applications and training from scratch. 
+   First, a pretrained model (DeepFloyd IF) is used for text-to-image generation, denoising, image editing, and visual anagram 
+   synthesis, demonstrating the impact of iterative denoising and classifier-free guidance (CFG) on image quality. Second, models 
+   are trained on MNIST to study the fundamentals of generative learning. A one-step denoising UNet is shown to collapse under an 
+   MSE objective when inputs contain no informative structure, producing averaged outputs. To address this, a flow matching model 
+   is implemented, learning a continuous transformation from noise to data via time conditioning. The model is further extended 
+   with class conditioning and CFG, enabling controlled and higher-quality generation. Overall, the results highlight the limitations 
+   of naive denoising and demonstrate the effectiveness of flow-based approaches for stable and controllable image generation.
   </p>
 </div>
 
 <!-- ===================== PART 1: PRETRAINED MODEL ===================== -->
 <div class="section">
-  <h2>Part 1: Power of Diffusion Model</h2>
+  <h2>Part 1: Power of Diffusion Models</h2>
   <p>
     In this section, a pretrained diffusion model 
     (<a href="https://huggingface.co/docs/diffusers/api/pipelines/deepfloyd_if" target="_blank">DeepFloyd IF</a>) 
@@ -296,7 +300,7 @@
         numbers of inference steps and execution time.</figcaption>
   </div>
 
-  <h3>1.2 The Diffusion Model Denoiser</h3>
+  <h3>1.2 Diffusion Model Denoising</h3>
   <p>
     Starting from a clean image \(x_0\), noise is iteratively added to produce progressively
     noisier versions \(x_t\), until pure noise is reached at timestep \(t = T\) (\(T=1000\) in this study).
@@ -314,7 +318,7 @@
 
   <h4>1.2.1 The Forward Process</h4>
   <p>
-    As the key part of diffusion, the forward process takes a clean image and adds noise to it, as defined by:
+    The forward process corrupts a clean image by progressively adding Gaussian noise, as defined by:
     <div class="equation">
         \[ q(x_t \mid x_0) = \mathcal{N}(x_t;\ \sqrt{\bar{\alpha}_t}\, x_0,\ (1 - \bar{\alpha}_t)\mathbf{I}) \tag{1.1} \]
     </div>
@@ -324,12 +328,10 @@
     </div>
     That is, given a clean image \(x_0\), we get a noisy image \(x_t\) at timestep \(t\) by sampling from a
     Gaussian with mean \( \sqrt{\bar{\alpha_t}}x_0 \) and variance \( (1-\bar{\alpha_t}) \). The \(\bar\alpha_t\)
-    is from the pretrained diffusion model variable <code>alphas_cumprod</code>. Remember that \(t=0\) corresponds
-    to a clean image, and larger \(t\) corresponds to more noise. Thus, \(\bar\alpha_t\) is closer to 1 for 
-    small \(t\) and closer to 0 for a large \(t\). 
+    is from the pretrained diffusion model variable <code>alphas_cumprod</code>. Note that \(t=0\) corresponds to a clean image and larger \(t\) corresponds to more noise; consequently, \(\bar{\alpha}_t\) approaches 1 for small \(t\) and 0 for large \(t\). 
   </p>
 
-  <h4>1.2.2 Classical Denoising - Gaussian Blur</h4>
+  <h4>1.2.2 Classical Denoising: Gaussian Blur Baseline</h4>
   <p>
     Gaussian blur is a classical image smoothing technique that convolves the image with a Gaussian
     kernel, replacing each pixel with a weighted average of its neighbors. The standard deviation
@@ -387,7 +389,7 @@
   <p>The term \(v_\sigma\) is a predicted noise variance term. In DeepFloyd, this is predicted by the
   model itself and added via the supplied <code>add_variance</code> function.</p>
     
-  <h3>1.2.5 Results</h3>
+  <h4>1.2.5 Denoising Results</h4>
   <p>
     Two 64&times;64 images — Sather Tower and an old man facing the sea — are used to evaluate the
     denoising methods, as shown in Figures 3 and 4. Each clean image is first corrupted using the
@@ -427,7 +429,7 @@
     <figcaption>Figure 4. Denoising the image of an old man facing the sea.</figcaption>
   </div>
 
-  <h3>1.3 Diffusion Model Sampling</h3>
+  <h3>1.3 Image Generation via Iterative Sampling</h3>
   <p>
     Beyond image denoising, the iterative denoising function can also be used to generate images from
     scratch. Instead of starting from a partially noisy image, passing pure noise as input allows the
@@ -437,12 +439,12 @@
   </p>
   <div class="figure">
     <img src="images/diffusion_sampling_without_CFG.png">
-    <figcaption>Figure 5. Examples of images generated from pure noises.</figcaption>
+    <figcaption>Figure 5. Images generated from pure noise without guidance.</figcaption>
   </div>
   <p>
     To improve image quality at the expense of diversity,
     <a href="https://arxiv.org/abs/2207.12598" target="_blank">Classifier-Free Guidance (CFG)</a>
-    is applied. Two noise estimates are calcualted: a conditional estimate \(\epsilon_c\) based on a
+    was applied. Two noise estimates were computed: a conditional estimate \(\epsilon_c\) based on a
     text prompt, and an unconditional estimate \(\epsilon_u\). The final noise estimate is then:
     <div class="equation">
       \[ \epsilon = \epsilon_u + \gamma (\epsilon_c - \epsilon_u) \tag{1.4} \]
@@ -460,7 +462,7 @@
     <img src="images/diffusion_sampling_with_CFG_s1.png">
     <img src="images/diffusion_sampling_with_CFG_s3.png">
     <img src="images/diffusion_sampling_with_CFG_s7.png">
-    <figcaption>Figure 6. Examples of images generated from pure noises using Classifier-Free Guidance.</figcaption>
+    <figcaption>Figure 6. Images generated from pure noise using Classifier-Free Guidance at different guidance scales.</figcaption>
   </div>
 
   <h3>1.4 Image-to-Image Translation</h3>
@@ -473,7 +475,7 @@
     <a href="https://sde-image-editing.github.io/" target="_blank">SDEdit</a> algorithm.
   </p>
   <h4>1.4.1 Image Editing</h4>
-  <p>Several clean images are noised at different levels and then denoised without text conditioning,
+  <p>Several clean images were noised at different levels and then denoised without text conditioning,
     as shown in Figure 7. The parameter <code>i_start</code> controls the noise level: a lower value
     corresponds to more noise added. At high <code>i_start</code> values (low noise), the output
     remains visually close to the original while the model enriches it with finer details, improving
@@ -488,10 +490,10 @@
     <img src="images/image_translation_avacado.png">
     <img src="images/image_translation_a_pig.png">
     <img src="images/image_translation_a_spaceman.png">
-    <figcaption>Figure 7. Examples of images generated from pure noises using Classifier-Free Guidance.</figcaption>
+    <figcaption>Figure 7. Image-to-image translation results at varying noise levels using SDEdit.</figcaption>
   </div>
   <h4>1.4.2 Image Inpainting</h4>
-  <p>The same procedure can be extended to image inpainting, following the
+  <p>The same procedure was extended to image inpainting, following the
     <a href="https://arxiv.org/abs/2201.09865" target="_blank">RePaint</a> algorithm. Given an
     original image \(x_\text{orig}\) and a binary mask \(\mathbf{m}\), the goal is to generate a
     new image that preserves the original content wherever \(\mathbf{m} = 0\) and synthesizes new
@@ -516,13 +518,13 @@
   <div class="figure">
     <img src="images/inpaint_no_prompt_sather_tower.png">
     <img src="images/inpaint_no_prompt_a_house_with_a_man.png">
-    <figcaption>Figure 8. Inpaint images under a mask.</figcaption>
+    <figcaption>Figure 8. Inpainting results using the RePaint algorithm without text conditioning.</figcaption>
   </div>
 
-  <h4>1.4.2 Text-Conditioned Image-to-Image Translation</h4>
-  <p>The same inpainting procedure is applied with a descriptive text prompt —
+  <h4>1.4.3 Text-Conditioned Image-to-Image Translation</h4>
+  <p>The same inpainting procedure was applied with a descriptive text prompt —
     <code>"a photo of a dog"</code> in this case — to steer the synthesized content toward a
-    specific target, as shown in Figure 9. The effect of noise level is examined by varying
+    specific target, as shown in Figure 9. The effect of noise level was examined by varying
     <code>i_start</code>. At low noise levels, the output remains close to the original with only
     minor detail changes, and the prompt has little visible influence. As the noise level increases
     (i.e., lower <code>i_start</code>), the prompt-driven features become apparent: the top of
@@ -533,7 +535,7 @@
   <div class="figure">
     <img src="images/inpaint_with_prompt_sather_tower.png">
     <img src="images/inpaint_with_prompt_a_house_with_a_man.png">
-    <figcaption>Figure 9. Inpaint images under a mask according to given text prompts.</figcaption>
+    <figcaption>Figure 9. Text-conditioned inpainting results using the prompt "a photo of a dog".</figcaption>
   </div>
 
   <h3>1.5 Visual Anagrams</h3>
@@ -602,11 +604,11 @@
       </figure>
       <figure class="figure scale-anim" data-normal="Mountain view (close up)" data-scaled="Dog (far away)">
         <img src="images/hybrid_fre_dog_mountain_256.png" alt="Mountain view / Dog">
-        <figcaption class="fig-caption">Waterfall (close up)</figcaption>
+        <figcaption class="fig-caption">Mountain view (close up)</figcaption>
       </figure>
       <figure class="figure scale-anim" data-normal="Flowers (close up)" data-scaled="Ragdoll cat (far away)">
-        <img src="images/hybrid_fre_cat_flowers_256.png" alt="Einstein / Waterfall">
-        <figcaption class="fig-caption">Waterfall (close up)</figcaption>
+        <img src="images/hybrid_fre_cat_flowers_256.png" alt="Flowers / Ragdoll cat">
+        <figcaption class="fig-caption">Flowers (close up)</figcaption>
       </figure>
     </div>
     <figcaption class="group-caption">Figure 11. Frequency-based hybrid images — appear different when viewed up close vs. from a distance</figcaption>
@@ -704,7 +706,7 @@
 
 <!-- ===================== PART 2: TRAINING FROM SCRATCH ===================== -->
 <div class="section">
-  <h2>Part 2: Training a Diffusion Model from Scratch</h2>
+  <h2>Part 2: Flow Matching from Scratch</h2>
   <p>
     Unlike the previous section, which relied on a pretrained model, this section trains
     <a href="https://arxiv.org/abs/2210.02747" target="_blank">flow matching</a> models from scratch.
@@ -716,7 +718,7 @@
     generative models.
   </p>
 
-  <h3>2.1 A Single-Step Denoising UNet</h3>
+  <h3>2.1 Single-Step Denoising UNet</h3>
   <p>
     A UNet is trained as a one-step denoiser \(D_\theta\), which maps a noisy image \(z\)
     to a clean image \(x\). It is optimized over an L2 loss:
@@ -736,7 +738,7 @@
     <li><strong><code>GELU</code></strong> is <code>nn.GELU()</code></li>
     <li><strong><code>ConvTranspose2d(kernel_size, stride, padding)</code></strong> is <code>nn.ConvTranspose2d()</code></li>
     <li><strong><code>AvgPool(kernel_size)</code></strong> is <code>nn.AvgPool2d()</code></li>
-    <li><strong><code>D</code></strong> is the number of hidden channels and is a hyperparameter that we will set ourselves.</li>
+    <li><strong><code>D</code></strong> is the number of hidden channels and is a hyperparameter set during training.</li>
   </ul>
   <p>At a high level, the blocks do the following:</p>
   <ul>
@@ -753,7 +755,7 @@
     adds more learnable parameters.
   </p>
 
-  <h4>2.1.1 Adding noise to MNIST</h4>
+  <h4>2.1.1 Noising MNIST Digits</h4>
   <p>
     To train the denoiser, data pairs \((z, x)\) are constructed by corrupting clean MNIST
     digits \(x\) with Gaussian noise according to the following process:
@@ -807,7 +809,7 @@
   </p>
   <div class="figure">
     <img src="images/OOD_noise_visualization.png" alt="UNet Architecture", style="max-width: 90%;">
-    <figcaption>Figure 17. Training loss curve.</figcaption>
+    <figcaption>Figure 17. OOD denoising results at noise levels σ ∈ {0.2, 0.4, 0.5, 0.6, 0.8, 1.0}.</figcaption>
   </div>
 
   <h4>2.1.4 Denoising Pure Noise</h4>
@@ -841,8 +843,230 @@
   </p>
   <div class="figure">
     <img src="images/onestep_pure_noise_denoising.png" alt="UNet Architecture", style="max-width: 90%;">
-    <figcaption>Figure 17. Training loss curve.</figcaption>
+    <figcaption>Figure 18. Outputs from denoising pure Gaussian noise after epochs 1 and 5.</figcaption>
   </div>
+
+
+
+ <h3>2.2 The Flow Matching Model</h3>
+  <p>
+    As shown in Section 2.1, one-step denoising does not work well for generative tasks. Instead,
+    <a href="https://arxiv.org/abs/2210.02747" target="_blank">flow matching</a> is adopted to
+    iteratively denoise from noise to a clean image. A UNet \(u_\theta(x_t, t)\) is trained to
+    predict the <em>flow</em> — the velocity field guiding noisy samples toward the clean data
+    distribution. In this setup, a pure noise image \(x_0 \sim \mathcal{N}(0, I)\) is gradually
+    transformed into a realistic image \(x_1\).
+  </p>
+  <p>
+    Intermediate noisy samples are constructed via linear interpolation between the noise \(x_0\)
+    and the clean image \(x_1\):
+    <div class="equation">
+      \[ x_t = (1 - t)x_0 + t x_1 \quad \text{where } x_0 \sim \mathcal{N}(0, 1),\ t \in [0, 1]. \tag{2.3} \]
+    </div>
+    This defines a vector field describing the position of a point \(x_t\) at time \(t\) as it
+    moves from the noisy distribution \(p_0(x_0)\) toward the clean data distribution \(p_1(x_1)\).
+    For small \(t\), the sample remains close to noise; as \(t\) increases, it approaches the
+    clean distribution.
+  </p>
+  <p>
+    The flow \(u(x_t, t)\) is the velocity of this vector field — the rate of change of \(x_t\)
+    with respect to time:
+    <div class="equation">
+      \[ u(x_t, t) = \frac{d}{dt} x_t = x_1 - x_0. \tag{2.4} \]
+    </div>
+    A UNet \(u_\theta(x_t, t)\) is trained to approximate this flow, yielding the learning
+    objective:
+    <div class="equation">
+      \[ L = \mathbb{E}_{x_0 \sim p_0(x_0),\, x_1 \sim p_1(x_1),\, t \sim U[0,1]} \|(x_1 - x_0) - u_\theta(x_t, t)\|^2. \tag{2.5} \]
+    </div>
+  </p>
+  
+  <h4>2.2.1 Adding Time Conditioning to UNet</h4>
+  <p>
+  To condition the UNet on timestep \(t\), a new FCBlock (fully-connected block) operator was
+  introduced to inject the conditioning signal, as shown in Figure 19. Rather than predicting the
+  original image, the model predicts the flow from noisy \(x_0\) to clean \(x_1\), encoding both
+  the image structure and the noise to be removed. Each FCBlock is implemented as
+  <code>Linear(F_in, F_out)</code> via <code>nn.Linear</code>, where <code>F_in = 1</code> since
+  the conditioning signal \(t\) is a scalar. The pseudo code below shows how \(t\) is embedded
+  and used to modulate intermediate feature maps.
+  </p>
+
+
+  <pre style="max-width: 60%; margin: 20px auto;"><code>fc1_t = FCBlock(...)
+    fc2_t = FCBlock(...)
+
+    # the t passed in here should be normalized to be in the range [0, 1]
+    t1 = fc1_t(t)
+    t2 = fc2_t(t)
+
+    # Follow diagram to get unflatten.
+    # Replace the original unflatten with modulated unflatten.
+    unflatten = unflatten * t1
+    # Follow diagram to get up1.
+    ...
+    # Replace the original up1 with modulated up1.
+    up1 = up1 * t2
+    # Follow diagram to get the output.
+    ...</code></pre>
+  <div class="figure">
+    <img src="images/conditional_Unet.png" alt="UNet Architecture", style="max-width: 90%;">
+    <figcaption>Figure 19. Time-conditioned UNet architecture with FCBlock injection.</figcaption>
+  </div>
+
+  <h4>2.2.2 Training the UNet</h4>
+  <p>
+    The time-conditioned UNet \(u_\theta(x_t, t)\) was trained to predict the flow \(x_1 - x_0\)
+    at intermediate timesteps following Algorithm 1 in Figure 20. At each iteration, a clean image \(x_1\) and
+    a timestep \(t \sim U[0,1]\) were randomly sampled, noise \(x_0 \sim \mathcal{N}(0, I)\) was
+    drawn, and the interpolated sample \(x_t\) was computed and fed to the model. The MNIST training
+    set was loaded via <code>torchvision.datasets.MNIST</code> with shuffling enabled and a batch
+    size of 64, with noise applied on-the-fly at each fetch. The UNet from Section 2.2.1 was used
+    with hidden dimension <code>D = 64</code>, with the conditioning signal \(t\) normalized to
+    \([0, 1]\) before injection. The model was optimized with Adam at an initial learning rate of
+    1e-2, with an exponential decay scheduler
+    \(\gamma = 0.1^{(1.0/\text{num\_epochs})}\) applied after each epoch via
+    <code>torch.optim.lr_scheduler.ExponentialLR(...)</code>.
+    Figure 21 shows the training loss curve, indicating rapid convergence within the first 100 iterations; beyond 
+    that, the loss continues to decrease but at a much slower rate. The  model improvement from epoch 2 to epoch 10 is marginal.
+  </p>
+  <div class="figure">
+    <img src="images/algorithm_training_time_conditioned.png" alt="UNet Architecture", style="max-width: 60%;">
+    <figcaption>Figure 20. Algorithm 1: Training procedure for the time-conditioned UNet.</figcaption>
+  </div>
+  <div class="figure">
+    <img src="images/FM_training_loss_curve.png" alt="UNet Architecture", style="max-width: 90%;">
+    <figcaption>Figure 21. Training loss curve for the time-conditioned flow matching model.</figcaption>
+  </div>
+
+
+ 
+  <h4>2.2.3 Image Sampling</h4>
+  <p>
+    Once trained, the time-conditioned UNet was used to generate images by iteratively denoising
+    pure Gaussian noise. The sampling procedure follows Algorithm 2 (Figure 22), which applies a
+    simple Euler method with a fixed step size of \(1/T\) over \(T = 50\) steps.
+    Figure 23 shows generated samples at epochs 1, 5, and 10. The model progressively learns to
+    produce more realistic and diverse digits as training advances. While some visual artifacts persist, the results are substantially more coherent than those from the one-step denoiser. 
+  </p>
+  <div class="figure">
+    <img src="images/algo2_sampling_timeconditioning.png" alt="UNet Architecture", style="max-width: 60%;">
+    <figcaption>Figure 22. Algorithm 2: Sampling procedure using the Euler method.</figcaption>
+  </div>
+  <div class="figure-group">
+    <div class="figure-col">
+      <figure class="figure" style="margin-bottom: 24px;">
+        <img src="images/FM_epoch_1_4x10.png" alt="Epoch 1" style="max-width: 90%;">
+        <figcaption style="margin-top: 4px;">Epoch 1</figcaption>
+      </figure>
+      <figure class="figure" style="margin-bottom: 24px;">
+        <img src="images/FM_epoch_5_4x10.png" alt="Epoch 5" style="max-width: 90%;">
+        <figcaption style="margin-top: 4px;">Epoch 5</figcaption>
+      </figure>
+      <figure class="figure" style="margin-bottom: 0;">
+        <img src="images/FM_epoch_10_4x10.png" alt="Epoch 10" style="max-width: 90%;">
+        <figcaption style="margin-top: 4px;">Epoch 10</figcaption>
+      </figure>
+    </div>
+    <figcaption class="group-caption">Figure 23. Generated samples at epochs 1, 5, and 10 using the time-conditioned flow matching model.</figcaption>
+  </div>
+
+  <h3>2.3 Class-Conditioned Flow Matching</h3>
+  <p>
+    To improve denoising quality and enable explicit control over the output, the UNet was further
+    conditioned on the digit class (0–9) in addition to the timestep \(t\). This required adding
+    two more FCBlocks to inject the class signal \(c\), represented as a one-hot vector rather than
+    a scalar. To retain unconditional generation capability — analogous to classifier-free guidance
+    in Part 1 — dropout was applied to the class conditioning: with probability
+    \(p_\text{uncond} = 0.1\), the class vector \(c\) was set to zero during training, allowing the
+    model \(u_\theta(x_t, t, c)\) to operate without class information.
+    The pseudo code below shows how both \(t\) and \(c\) are embedded and used to modulate the
+    intermediate feature maps:</p>
+  <pre style="max-width: 65%; margin: 20px auto;"><code>fc1_t = FCBlock(...)
+    fc1_c = FCBlock(...)
+    fc2_t = FCBlock(...)
+    fc2_c = FCBlock(...)
+
+    t1 = fc1_t(t)
+    c1 = fc1_c(c)
+    t2 = fc2_t(t)
+    c2 = fc2_c(c)
+
+    # Follow diagram to get unflatten.
+    # Replace the original unflatten with modulated unflatten.
+    unflatten = c1 * unflatten + t1
+    # Follow diagram to get up1.
+    ...
+    # Replace the original up1 with modulated up1.
+    up1 = c2 * up1 + t2
+    # Follow diagram to get the output.
+...</code></pre>
+
+
+  <h4>2.3.1 Training the Class-Conditioned UNet</h4>
+  <p>
+    Training the class-conditioned UNet followed the same procedure as the time-conditioned model
+    in Section 2.2.2, with one key addition: the class conditioning vector \(c\) was injected
+    alongside \(t\), and unconditional generation was applied periodically by zeroing out \(c\)
+    with probability \(p_\text{uncond} = 0.1\), following Algorithm 3 (Figure 24).
+    The resulting training loss curve is shown in Figure 25.
+  </p>
+  <div class="figure">
+    <img src="images/algo3_c_fm.png" alt="UNet Architecture", style="max-width: 60%;">
+    <figcaption>Figure 24. Algorithm 3: Training procedure for the class-conditioned UNet.</figcaption>
+  </div>
+  <div class="figure">
+    <img src="images/ClassConditioned_training_loss_curve.png" alt="UNet Architecture", style="max-width: 90%;">
+    <figcaption>Figure 25. Training loss curve for the class-conditioned flow matching model.</figcaption>
+  </div>
+
+  <h4>2.3.2 Sampling from the Class-Conditioned UNet</h4>
+  <p>
+    The class-conditioned model was used to generate images via classifier-free guidance (CFG),
+    following Algorithm 4 (Figure 26). A guidance scale of \(\gamma = 5.0\) was applied during
+    sampling to steer the outputs toward the target class and enhance overall generation quality.
+  </p>
+  <div class="figure">
+    <img src="images/algo4_c_fm.png" alt="UNet Architecture", style="max-width: 60%;">
+    <figcaption>Figure 26. Algorithm 4: CFG sampling procedure for the class-conditioned UNet.</figcaption>
+  </div>
+
+  <p>
+    Figure 27 shows generated samples at epochs 1, 5, and 10. The class-conditioned model with
+    CFG produces noticeably sharper and more recognizable digits compared to the time-conditioned
+    model alone, confirming the benefit of explicit class conditioning for generation quality.
+  </p>
+  <div class="figure-group">
+    <div class="figure-col">
+      <figure class="figure" style="margin-bottom: 24px;">
+        <img src="images/ClassFM_epoch_1_4x10.png" alt="Epoch 1" style="max-width: 90%;">
+        <figcaption style="margin-top: 4px;">Epoch 1</figcaption>
+      </figure>
+      <figure class="figure" style="margin-bottom: 24px;">
+        <img src="images/ClassFM_epoch_5_4x10.png" alt="Epoch 5" style="max-width: 90%;">
+        <figcaption style="margin-top: 4px;">Epoch 5</figcaption>
+      </figure>
+      <figure class="figure" style="margin-bottom: 0;">
+        <img src="images/ClassFM_epoch_10_4x10.png" alt="Epoch 10" style="max-width: 90%;">
+        <figcaption style="margin-top: 4px;">Epoch 10</figcaption>
+      </figure>
+    </div>
+    <figcaption class="group-caption">Figure 27. Generated samples at epochs 1, 5, and 10 using the class-conditioned flow matching model with CFG.</figcaption>
+  </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -850,10 +1074,28 @@
 <div class="section">
   <h2>Conclusion</h2>
   <p>
-    This project demonstrated the versatility of diffusion models both as pretrained tools
-    for creative image generation and as learnable architectures trainable from scratch.
-    Future work could explore conditional generation, faster sampling methods (DDIM), and
-    application to other data modalities.
+    This project examined diffusion and flow matching models at two levels of abstraction — through a
+    large-scale pretrained model and through models trained from scratch on a simple benchmark.
+  </p>
+  <p>
+    In Part 1, experiments with DeepFloyd IF confirmed that iterative diffusion denoising substantially
+    outperforms classical Gaussian blur, recovering fine structural details lost during the forward noising
+    process. One-step denoising performs well at low to moderate noise but begins to hallucinate at high
+    levels; iterative denoising further improves quality while exhibiting the same tendency. Classifier-Free
+    Guidance proved effective at improving generation quality, with guidance scales above 1 producing sharper
+    results at the cost of output diversity. The SDEdit and RePaint algorithms demonstrated versatile image
+    editing and inpainting capabilities, and the visual anagram experiments showed that diffusion models can
+    be guided to simultaneously satisfy multiple semantic constraints within a single image.
+  </p>
+  <p>
+    In Part 2, the limitations of one-step MSE denoising for generation were characterized theoretically:
+    when applied to pure noise, the optimal MSE-trained denoiser reduces to the dataset mean due to the
+    statistical independence of the noise and data distributions. Flow matching overcame this limitation by
+    training a time-conditioned UNet to predict a velocity field along a linear interpolation path, enabling
+    iterative synthesis of diverse, coherent digits. Adding class conditioning with CFG dropout further
+    improved output sharpness and semantic consistency, yielding recognizable class-specific digits by epoch 5.
+    Together, the two parts illustrate both the power of pretrained diffusion models and the principled
+    design choices that make training generative models from scratch effective.
   </p>
 </div>
 
@@ -861,9 +1103,14 @@
 <div class="section">
   <h2>References</h2>
   <ol>
-    <li>Ho et al., <em>Denoising Diffusion Probabilistic Models</em>, NeurIPS 2020.</li>
-    <li>Saharia et al., <em>Photorealistic Text-to-Image Diffusion Models with Deep Language Understanding</em>, NeurIPS 2022.</li>
-    <li>Song et al., <em>Denoising Diffusion Implicit Models</em>, ICLR 2021.</li>
+    <li>Ho et al., <em>Denoising Diffusion Probabilistic Models</em>, NeurIPS 2020. [<a href="https://arxiv.org/abs/2006.11239" target="_blank">arXiv</a>]</li>
+    <li>Saharia et al., <em>Photorealistic Text-to-Image Diffusion Models with Deep Language Understanding</em>, NeurIPS 2022. [<a href="https://arxiv.org/abs/2205.11487" target="_blank">arXiv</a>]</li>
+    <li>Song et al., <em>Denoising Diffusion Implicit Models</em>, ICLR 2021. [<a href="https://arxiv.org/abs/2010.02502" target="_blank">arXiv</a>]</li>
+    <li>Ho &amp; Salimans, <em>Classifier-Free Diffusion Guidance</em>, NeurIPS Workshop 2021. [<a href="https://arxiv.org/abs/2207.12598" target="_blank">arXiv</a>]</li>
+    <li>Meng et al., <em>SDEdit: Guided Image Synthesis and Editing with Stochastic Differential Equations</em>, ICLR 2022. [<a href="https://arxiv.org/abs/2111.15640" target="_blank">arXiv</a>]</li>
+    <li>Lugmayr et al., <em>RePaint: Inpainting using Denoising Diffusion Probabilistic Models</em>, CVPR 2022. [<a href="https://arxiv.org/abs/2201.09865" target="_blank">arXiv</a>]</li>
+    <li>Geng et al., <em>Visual Anagrams: Generating Multi-View Optical Illusions with Diffusion Models</em>, CVPR 2024. [<a href="https://arxiv.org/abs/2311.17919" target="_blank">arXiv</a>]</li>
+    <li>Lipman et al., <em>Flow Matching for Generative Modeling</em>, ICLR 2023. [<a href="https://arxiv.org/abs/2210.02747" target="_blank">arXiv</a>]</li>
   </ol>
 </div>
 
